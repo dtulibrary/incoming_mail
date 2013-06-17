@@ -1,3 +1,4 @@
+# encoding: UTF-8
 require 'rake'
 Gem::Specification.new do |spec|
   spec.name = 'incoming_mail'
