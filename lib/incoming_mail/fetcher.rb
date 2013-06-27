@@ -61,16 +61,24 @@ module IncomingMail
       Signal.trap("HUP") do
         $incoming_mail_run = 0
       end
-      @imap.add_response_handler do |resp|
-        if resp.kind_of?(Net::IMAP::UntaggedResponse) and resp.name == "EXISTS"
-          process
-        end
-      end
+      start_imap
+
+      # Process the inbox once before we start to loop
+      Rails.logger.info "Process mail box before loop"
+      process
+
+      Rails.logger.info "Starting mail processing loop"
       while $incoming_mail_run do
-        @imap.idle  # necessary to tell the server to start forwarding requests.
-        sleep(3600)  # Every hour we do a manual check
+        Rails.logger.info "Incoming mail loop idle"
+        @imap.idle do |resp|
+          if resp.kind_of?(Net::IMAP::UntaggedResponse) and resp.name == "EXISTS"
+            process
+          end
+        end
+        sleep(1200)  # Every 20 minutes we do a manual check
         @imap.idle_done
         # Do a manual check, just in case things aren't working properly.
+        Rails.logger.info "Process mail box - catch up"
         process if $incoming_mail_run
       end
       finish
@@ -89,7 +97,7 @@ module IncomingMail
               @imap.store msg_id, '+FLAGS', [:Deleted]
             end
           rescue StandardError => e
-            Rails.logger.info "Mail process " + e.message
+            Rails.logger.info "Mail process -> " + e.message
           end
         end
       end

@@ -13,6 +13,6 @@ namespace :incoming_mail do
   task :loop => :environment do
     Rails.logger = Logger.new("#{Rails.root}/log/incoming_mail.log")
     Rails.logger.formatter = IncomingMail::LogFormatter.new
-    IncomingMail.loop_fetch
+    IncomingMail.fetch_loop
   end
 end
