@@ -16,5 +16,5 @@ DESC
   spec.license = 'GPL-2'
   spec.required_ruby_version = '>= 1.9.2'
   spec.requirements << 'Access to an IMAP mail server'
-  spec.version = '1.0.5'
+  spec.version = '1.0.6'
 end

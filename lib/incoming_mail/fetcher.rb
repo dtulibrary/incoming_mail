@@ -53,14 +53,16 @@ module IncomingMail
     end
 
     def fetch_loop
-      $incoming_mail_run = 1
+      $incoming_mail_run = true
+      $incoming_mail = false
+
       # Setup signal handlers
-      Signal.trap("USR1") do
-        $incoming_mail_run = 0
-      end
-      Signal.trap("HUP") do
-        $incoming_mail_run = 0
-      end
+      Signal.trap("TERM") { |sig| terminate_handler(sig) }
+      Signal.trap("HUP") { |sig| terminate_handler(sig) }
+      Signal.trap("QUIT") { |sig| terminate_handler(sig) }
+      # Get the process to check mails
+      Signal.trap("USR1") { |sig| process_mail_handling(sig) }
+
       start_imap
 
       # Process the inbox once before we start to loop
@@ -69,25 +71,33 @@ module IncomingMail
 
       Rails.logger.info "Starting mail processing loop"
       while $incoming_mail_run do
-        Rails.logger.info "Incoming mail loop idle"
-        @imap.idle do |resp|
-          if resp.kind_of?(Net::IMAP::UntaggedResponse) and resp.name == "EXISTS"
-            process
+        process_thread = Thread.start do
+          @imap.idle do |resp|
+            if resp.kind_of?(Net::IMAP::UntaggedResponse) and resp.name == "EXISTS"
+              Rails.logger.info "New messages"
+              $incoming_mail = true
+            end
           end
         end
-        sleep(1200)  # Every 20 minutes we do a manual check
+
+        Rails.logger.info "Waiting for 20 minutes or flag"
+        sleep_break(1200)  # Every 20 minutes we do a manual check
+
+        $incoming_mail = false
         @imap.idle_done
-        # Do a manual check, just in case things aren't working properly.
-        Rails.logger.info "Process mail box - catch up"
+        process_thread.join
         process if $incoming_mail_run
       end
+
       finish
+      Rails.logger.info "Mail loop finished"
     end
 
     def process
       check_processed_mailbox(@config['processed_mailbox'])
       @imap.select @config['mailbox']
       msg_ids = @imap.search(["ALL"])
+      Rails.logger.info("Processing #{msg_ids.count} messages")
       unless msg_ids.empty?
         msg_ids.each do |msg_id|
           begin
@@ -105,5 +115,24 @@ module IncomingMail
       @imap.expunge()
     end
   
+    def sleep_break( seconds ) # breaks after n seconds or after interrupt
+      while (seconds > 0)
+        sleep(1)
+        seconds -= 1
+        break unless $incoming_mail_run
+        break if $incoming_mail
+      end
+    end
+
+    def terminate_handler(signo)
+      Rails.logger.info "Got signal #{signo} - end run"
+      $incoming_mail_run = false
+    end
+
+    def process_mail_handler(signo)
+      Rails.logger.info "Got signal #{signo} - processing mail"
+      $incoming_mail = true
+    end
+
   end
 end
