@@ -96,15 +96,15 @@ module IncomingMail
     def process
       check_processed_mailbox(@config['processed_mailbox'])
       @imap.select @config['mailbox']
-      msg_ids = @imap.search(["ALL"])
+      msg_ids = @imap.uid_search(["ALL"])
       Rails.logger.info("Processing #{msg_ids.count} messages")
       unless msg_ids.empty?
         msg_ids.each do |msg_id|
           begin
-            mail = Mail.new(@imap.fetch(msg_id, 'RFC822').first.attr['RFC822'])
+            mail = Mail.new(@imap.uid_fetch(msg_id, 'RFC822').first.attr['RFC822'])
             if IncomingMailController.receive(mail)
-              @imap.copy(msg_id, @processed_mailbox) if @processed_mailbox
-              @imap.store msg_id, '+FLAGS', [:Deleted]
+              @imap.uid_copy(msg_id, @processed_mailbox) if @processed_mailbox
+              @imap.uid_store msg_id, '+FLAGS', [:Deleted]
             end
           rescue StandardError => e
             Rails.logger.info "Mail process -> " + e.message
