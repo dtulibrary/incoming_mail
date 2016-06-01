@@ -2,7 +2,7 @@
 require 'rake'
 Gem::Specification.new do |spec|
   spec.name = 'incoming_mail'
-  spec.authors = [ 'Morten Rønne' ]
+  spec.authors = [ 'Morten Ronne' ]
   spec.add_runtime_dependency ('mail')
   spec.add_development_dependency('rspec')
   spec.summary = 'IMAP mail reader/processor'
